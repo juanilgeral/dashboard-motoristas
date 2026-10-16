@@ -195,7 +195,8 @@
     <div>
       <label>Critério: </label>
       <select id="metric">
-        <option value="destinos" selected>Total de Destinos</option>
+        <option value="combinado" selected>Combinado (Justo)</option>
+        <option value="destinos">Total de Destinos</option>
         <option value="trips">Total de Viagens</option>
         <option value="multiDays">Dias com +1 viagem</option>
       </select>
@@ -258,13 +259,16 @@
     let rawData = [];
     let rankChart = null;
     let pctChart = null;
+    let isFirstLoad = true;
 
-    async function loadData() {
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('app').style.display = 'none';
+    async function loadData(silent = false) {
+      if (!silent) {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('app').style.display = 'none';
+      }
 
       return new Promise((resolve, reject) => {
-        Papa.parse(CSV_URL, {
+        Papa.parse(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now(), {
           download: true,
           header: true,
           skipEmptyLines: true,
@@ -347,15 +351,29 @@
 
       const totalTrips = data.length;
       const totalDestinos = data.reduce((s, r) => s + (r.destinos || 1), 0);
-      const list = Object.keys(byDriver).map(mot => ({
-        motorista: mot,
-        trips: byDriver[mot],
-        destinos: destByDriver[mot],
-        days: daysByDriver[mot].size,
-        multiDays: multiDays[mot] || 0,
-        pctTrips: totalTrips ? ((byDriver[mot] / totalTrips) * 100) : 0,
-        pctDestinos: totalDestinos ? ((destByDriver[mot] / totalDestinos) * 100) : 0
-      })).sort((a, b) => b.destinos - a.destinos);
+      const maxTrips = Math.max(...Object.values(byDriver), 1);
+      const maxDestinos = Math.max(...Object.values(destByDriver), 1);
+      const maxMulti = Math.max(...Object.values(multiDays), 1);
+
+      const list = Object.keys(byDriver).map(mot => {
+        const trips = byDriver[mot];
+        const destinos = destByDriver[mot];
+        const multi = multiDays[mot] || 0;
+        const scoreTrips = (trips / maxTrips) * 100;
+        const scoreDest = (destinos / maxDestinos) * 100;
+        const scoreMulti = (multi / maxMulti) * 100;
+        const combinado = (scoreTrips + scoreDest + scoreMulti) / 3;
+        return {
+          motorista: mot,
+          trips,
+          destinos,
+          days: daysByDriver[mot].size,
+          multiDays: multi,
+          pctTrips: totalTrips ? ((trips / totalTrips) * 100) : 0,
+          pctDestinos: totalDestinos ? ((destinos / totalDestinos) * 100) : 0,
+          combinado
+        };
+      }).sort((a, b) => b.combinado - a.combinado);
 
       return { list, totalTrips, totalDestinos, totalDrivers: list.length };
     }
@@ -369,16 +387,24 @@
       let sorted = [...stats.list];
       if (metric === 'trips') sorted.sort((a, b) => b.trips - a.trips);
       else if (metric === 'multiDays') sorted.sort((a, b) => b.multiDays - a.multiDays);
-      else sorted.sort((a, b) => b.destinos - a.destinos); // default destinos
+      else if (metric === 'destinos') sorted.sort((a, b) => b.destinos - a.destinos);
+      else sorted.sort((a, b) => b.combinado - a.combinado); // combinado
 
       // Stats cards
       const statsEl = document.getElementById('stats');
       const leader = sorted[0];
+      let leaderValue = 0;
+      if (leader) {
+        if (metric === 'trips') leaderValue = leader.trips;
+        else if (metric === 'multiDays') leaderValue = leader.multiDays;
+        else if (metric === 'destinos') leaderValue = leader.destinos;
+        else leaderValue = leader.combinado.toFixed(1);
+      }
       statsEl.innerHTML = `
         <div class="stat"><div class="value">${stats.totalTrips}</div><div class="label">Total de Viagens</div></div>
         <div class="stat"><div class="value">${stats.totalDestinos}</div><div class="label">Total de Destinos</div></div>
         <div class="stat"><div class="value">${stats.totalDrivers}</div><div class="label">Motoristas</div></div>
-        <div class="stat"><div class="value">${leader ? (metric === 'trips' ? leader.trips : metric === 'multiDays' ? leader.multiDays : leader.destinos) : 0}</div><div class="label">Líder</div></div>
+        <div class="stat"><div class="value">${leaderValue}</div><div class="label">Líder</div></div>
         <div class="stat"><div class="value">${leader ? leader.motorista : '-'}</div><div class="label">Motorista Destaque</div></div>
       `;
 
@@ -390,9 +416,10 @@
       const rankData = top.map(d => {
         if (metric === 'trips') return d.trips;
         if (metric === 'multiDays') return d.multiDays;
-        return d.destinos;
+        if (metric === 'destinos') return d.destinos;
+        return d.combinado;
       });
-      const rankLabel = metric === 'trips' ? 'Viagens' : metric === 'multiDays' ? 'Dias +1 viagem' : 'Destinos';
+      const rankLabel = metric === 'trips' ? 'Viagens' : metric === 'multiDays' ? 'Dias +1 viagem' : metric === 'destinos' ? 'Destinos' : 'Score Combinado';
       rankChart = new Chart(ctx1, {
         type: 'bar',
         data: {
@@ -422,7 +449,11 @@
       // Percentage chart
       const ctx2 = document.getElementById('pctChart').getContext('2d');
       if (pctChart) pctChart.destroy();
-      const pctData = top.map(d => (metric === 'trips' ? d.pctTrips : d.pctDestinos).toFixed(1));
+      const pctData = top.map(d => {
+        if (metric === 'trips') return d.pctTrips.toFixed(1);
+        if (metric === 'combinado') return d.combinado.toFixed(1);
+        return d.pctDestinos.toFixed(1);
+      });
       pctChart = new Chart(ctx2, {
         type: 'bar',
         data: {
@@ -455,7 +486,11 @@
           <td>${d.destinos}</td>
           <td>${d.days}</td>
           <td>${d.multiDays}</td>
-          <td class="pct">${(metric === 'trips' ? d.pctTrips : d.pctDestinos).toFixed(1)}%</td>
+          <td class="pct">${
+            metric === 'trips' ? d.pctTrips.toFixed(1) :
+            metric === 'combinado' ? d.combinado.toFixed(1) :
+            d.pctDestinos.toFixed(1)
+          }%</td>
         </tr>
       `).join('');
 
@@ -463,29 +498,41 @@
       document.getElementById('app').style.display = 'grid';
     }
 
-    async function update() {
+    async function update(silent = false) {
       try {
-        if (rawData.length === 0) await loadData();
+        if (rawData.length === 0 || !silent) {
+          await loadData(silent && !isFirstLoad);
+        } else if (silent) {
+          await loadData(true);
+        }
         const period = document.getElementById('period').value;
         const op = document.getElementById('opFilter').value;
         const filtered = filterData(period, op);
         render(filtered);
+        isFirstLoad = false;
       } catch (e) {
-        document.getElementById('loading').innerHTML = 'Erro ao carregar dados. Verifique a conexão ou o link da planilha.';
+        if (!silent) {
+          document.getElementById('loading').innerHTML = 'Erro ao carregar dados. Verifique a conexão ou o link da planilha.';
+        }
         console.error(e);
       }
     }
 
-    document.getElementById('period').addEventListener('change', update);
-    document.getElementById('topN').addEventListener('change', update);
-    document.getElementById('metric').addEventListener('change', update);
-    document.getElementById('opFilter').addEventListener('change', update);
+    document.getElementById('period').addEventListener('change', () => update(false));
+    document.getElementById('topN').addEventListener('change', () => update(false));
+    document.getElementById('metric').addEventListener('change', () => update(false));
+    document.getElementById('opFilter').addEventListener('change', () => update(false));
     document.getElementById('refresh').addEventListener('click', async () => {
       rawData = [];
-      await update();
+      await update(false);
     });
 
-    update();
+    // Atualização automática silenciosa a cada 30 segundos
+    setInterval(() => {
+      if (!isFirstLoad) update(true);
+    }, 30000);
+
+    update(false);
   </script>
 </body>
 </html>
