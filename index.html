@@ -160,6 +160,7 @@
       <label>Período: </label>
       <select id="period">
         <option value="all">Todo o período</option>
+        <option value="current" selected>Mês Atual</option>
         <option value="2026-01">Janeiro 2026</option>
         <option value="2026-02">Fevereiro 2026</option>
         <option value="2026-03">Março 2026</option>
@@ -310,8 +311,15 @@
 
     function filterData(period, op) {
       let filtered = rawData;
-      if (period !== 'all') {
-        const [y, m] = period.split('-').map(Number);
+      let targetPeriod = period;
+      if (period === 'current') {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        targetPeriod = `${y}-${m}`;
+      }
+      if (targetPeriod !== 'all') {
+        const [y, m] = targetPeriod.split('-').map(Number);
         filtered = filtered.filter(r => {
           const d = parseDate(r.data);
           return d && d.getFullYear() === y && (d.getMonth() + 1) === m;
