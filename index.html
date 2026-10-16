@@ -235,6 +235,7 @@
               <th>Motorista</th>
               <th>Viagens</th>
               <th>Destinos</th>
+              <th>Reservas</th>
               <th>Dias ativos</th>
               <th>Dias +1</th>
               <th>%</th>
@@ -247,7 +248,8 @@
   </div>
 
   <div class="source">
-    Dados carregados diretamente da planilha publicada. Nenhuma manipulação local. Atualizado a cada carregamento.
+    Dados carregados diretamente da planilha publicada. Nenhuma manipulação local. Atualizado a cada carregamento.  
+    Motoristas em <strong>RESERVA</strong> são contabilizados normalmente como viagens (transferências e organização no CD).
   </div>
   <footer>
     Dashboard de Premiação • Baseado no Controle de Veículos • Visível em celular e monitor
@@ -284,7 +286,8 @@
                   veiculo: r.VEICULO || '',
                   destino: destStr,
                   destinos: destCount,
-                  op: (r.OP || '').toString().toUpperCase()
+                  op: (r.OP || '').toString().toUpperCase(),
+                  isReserva: destStr.trim().toUpperCase() === 'RESERVA'
                 };
               });
             resolve();
@@ -324,15 +327,18 @@
       const byDriver = {};
       const daysByDriver = {};
       const destByDriver = {};
+      const reservaByDriver = {};
 
       data.forEach(r => {
         if (!byDriver[r.motorista]) {
           byDriver[r.motorista] = 0;
           daysByDriver[r.motorista] = new Set();
           destByDriver[r.motorista] = 0;
+          reservaByDriver[r.motorista] = 0;
         }
         byDriver[r.motorista]++;
         destByDriver[r.motorista] += r.destinos || 1;
+        if (r.isReserva) reservaByDriver[r.motorista]++;
         if (r.data) daysByDriver[r.motorista].add(r.data);
       });
 
@@ -367,6 +373,7 @@
           motorista: mot,
           trips,
           destinos,
+          reservas: reservaByDriver[mot] || 0,
           days: daysByDriver[mot].size,
           multiDays: multi,
           pctTrips: totalTrips ? ((trips / totalTrips) * 100) : 0,
@@ -484,6 +491,7 @@
           <td>${d.motorista}</td>
           <td>${d.trips}</td>
           <td>${d.destinos}</td>
+          <td>${d.reservas}</td>
           <td>${d.days}</td>
           <td>${d.multiDays}</td>
           <td class="pct">${
