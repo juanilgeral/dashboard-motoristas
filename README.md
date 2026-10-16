@@ -24,12 +24,26 @@ Dashboard responsivo para visualização do ranking e aproveitamento dos motoris
 Os dados são carregados automaticamente da planilha publicada toda vez que a página é aberta.  
 Não é necessário atualizar o código quando a planilha for alimentada.
 
-## Critérios de ranking
+## Filtros
 
-- **Total de Viagens**: quantidade de registros (linhas) do motorista na planilha.
-- **Dias com +1 viagem**: dias em que o motorista aparece mais de uma vez.
+- Período (mês)
+- Operação (HT, CV, TL, LS, GR ou Todas)
+- Critério de ranking (Destinos / Viagens / Dias com +1 viagem)
+- Quantidade no Top
 
-O percentual mostrado é a participação do motorista no total de viagens do período selecionado.
+## Integração no painel CCO
+
+Para adicionar um link no painel CCO (`https://juanilgeral.github.io/dashboard-cco/index.html`), 
+insira um botão na área de filtros do header, por exemplo:
+
+```html
+<a href="https://juanilgeral.github.io/dashboard-motoristas/" target="_blank" 
+   style="background:rgba(8,14,24,.9);border:1px solid var(--line);color:var(--cyan);border-radius:999px;padding:5px 12px;font:700 .85rem Rajdhani,sans-serif;letter-spacing:.08em;text-decoration:none;">
+  MOTORISTAS
+</a>
+```
+
+Coloque dentro da `<div class="filtros" id="filtros">` junto aos outros botões.
 
 ## Observações
 

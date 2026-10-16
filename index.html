@@ -182,8 +182,20 @@
       </select>
     </div>
     <div>
+      <label>Operação: </label>
+      <select id="opFilter">
+        <option value="">Todas</option>
+        <option value="HT">HT (Hortifrúti)</option>
+        <option value="CV">CV</option>
+        <option value="TL">TL</option>
+        <option value="LS">LS</option>
+        <option value="GR">GR</option>
+      </select>
+    </div>
+    <div>
       <label>Critério: </label>
       <select id="metric">
+        <option value="destinos" selected>Total de Destinos</option>
         <option value="trips">Total de Viagens</option>
         <option value="multiDays">Dias com +1 viagem</option>
       </select>
@@ -199,7 +211,7 @@
     </div>
 
     <div class="card full">
-      <h2>Ranking de Motoristas (Viagens)</h2>
+      <h2>Ranking de Motoristas</h2>
       <div class="chart-container">
         <canvas id="rankChart"></canvas>
       </div>
@@ -221,8 +233,9 @@
               <th>#</th>
               <th>Motorista</th>
               <th>Viagens</th>
+              <th>Destinos</th>
               <th>Dias ativos</th>
-              <th>Dias +1 viagem</th>
+              <th>Dias +1</th>
               <th>%</th>
             </tr>
           </thead>
@@ -258,12 +271,18 @@
           complete: (results) => {
             rawData = results.data
               .filter(r => r.MOTORISTA && r.MOTORISTA.trim())
-              .map(r => ({
-                data: r.DATA,
-                motorista: r.MOTORISTA.trim().toUpperCase(),
-                veiculo: r.VEICULO || '',
-                destino: r.DESTINO || ''
-              }));
+              .map(r => {
+                const destStr = (r.DESTINO || '').toString();
+                const destCount = Math.max(1, destStr.split(/\s*\/\s*/).filter(p => p.trim()).length);
+                return {
+                  data: r.DATA,
+                  motorista: r.MOTORISTA.trim().toUpperCase(),
+                  veiculo: r.VEICULO || '',
+                  destino: destStr,
+                  destinos: destCount,
+                  op: (r.OP || '').toString().toUpperCase()
+                };
+              });
             resolve();
           },
           error: reject
@@ -282,25 +301,34 @@
       return new Date(year, month, day);
     }
 
-    function filterData(period) {
-      if (period === 'all') return rawData;
-      const [y, m] = period.split('-').map(Number);
-      return rawData.filter(r => {
-        const d = parseDate(r.data);
-        return d && d.getFullYear() === y && (d.getMonth() + 1) === m;
-      });
+    function filterData(period, op) {
+      let filtered = rawData;
+      if (period !== 'all') {
+        const [y, m] = period.split('-').map(Number);
+        filtered = filtered.filter(r => {
+          const d = parseDate(r.data);
+          return d && d.getFullYear() === y && (d.getMonth() + 1) === m;
+        });
+      }
+      if (op) {
+        filtered = filtered.filter(r => r.op === op);
+      }
+      return filtered;
     }
 
     function computeStats(data) {
       const byDriver = {};
       const daysByDriver = {};
+      const destByDriver = {};
 
       data.forEach(r => {
         if (!byDriver[r.motorista]) {
           byDriver[r.motorista] = 0;
           daysByDriver[r.motorista] = new Set();
+          destByDriver[r.motorista] = 0;
         }
         byDriver[r.motorista]++;
+        destByDriver[r.motorista] += r.destinos || 1;
         if (r.data) daysByDriver[r.motorista].add(r.data);
       });
 
@@ -318,15 +346,18 @@
       });
 
       const totalTrips = data.length;
+      const totalDestinos = data.reduce((s, r) => s + (r.destinos || 1), 0);
       const list = Object.keys(byDriver).map(mot => ({
         motorista: mot,
         trips: byDriver[mot],
+        destinos: destByDriver[mot],
         days: daysByDriver[mot].size,
         multiDays: multiDays[mot] || 0,
-        pct: totalTrips ? ((byDriver[mot] / totalTrips) * 100) : 0
-      })).sort((a, b) => b.trips - a.trips);
+        pctTrips: totalTrips ? ((byDriver[mot] / totalTrips) * 100) : 0,
+        pctDestinos: totalDestinos ? ((destByDriver[mot] / totalDestinos) * 100) : 0
+      })).sort((a, b) => b.destinos - a.destinos);
 
-      return { list, totalTrips, totalDrivers: list.length };
+      return { list, totalTrips, totalDestinos, totalDrivers: list.length };
     }
 
     function render(data) {
@@ -334,27 +365,41 @@
       const metric = document.getElementById('metric').value;
       const stats = computeStats(data);
 
+      // Sort according to selected metric
+      let sorted = [...stats.list];
+      if (metric === 'trips') sorted.sort((a, b) => b.trips - a.trips);
+      else if (metric === 'multiDays') sorted.sort((a, b) => b.multiDays - a.multiDays);
+      else sorted.sort((a, b) => b.destinos - a.destinos); // default destinos
+
       // Stats cards
       const statsEl = document.getElementById('stats');
+      const leader = sorted[0];
       statsEl.innerHTML = `
         <div class="stat"><div class="value">${stats.totalTrips}</div><div class="label">Total de Viagens</div></div>
+        <div class="stat"><div class="value">${stats.totalDestinos}</div><div class="label">Total de Destinos</div></div>
         <div class="stat"><div class="value">${stats.totalDrivers}</div><div class="label">Motoristas</div></div>
-        <div class="stat"><div class="value">${stats.list[0]?.trips || 0}</div><div class="label">Líder (viagens)</div></div>
-        <div class="stat"><div class="value">${stats.list[0]?.motorista || '-'}</div><div class="label">Motorista Destaque</div></div>
+        <div class="stat"><div class="value">${leader ? (metric === 'trips' ? leader.trips : metric === 'multiDays' ? leader.multiDays : leader.destinos) : 0}</div><div class="label">Líder</div></div>
+        <div class="stat"><div class="value">${leader ? leader.motorista : '-'}</div><div class="label">Motorista Destaque</div></div>
       `;
 
-      const top = stats.list.slice(0, topN);
+      const top = sorted.slice(0, topN);
 
       // Ranking chart
       const ctx1 = document.getElementById('rankChart').getContext('2d');
       if (rankChart) rankChart.destroy();
+      const rankData = top.map(d => {
+        if (metric === 'trips') return d.trips;
+        if (metric === 'multiDays') return d.multiDays;
+        return d.destinos;
+      });
+      const rankLabel = metric === 'trips' ? 'Viagens' : metric === 'multiDays' ? 'Dias +1 viagem' : 'Destinos';
       rankChart = new Chart(ctx1, {
         type: 'bar',
         data: {
           labels: top.map(d => d.motorista),
           datasets: [{
-            label: 'Viagens',
-            data: top.map(d => metric === 'multiDays' ? d.multiDays : d.trips),
+            label: rankLabel,
+            data: rankData,
             backgroundColor: '#38bdf8',
             borderRadius: 6
           }]
@@ -377,13 +422,14 @@
       // Percentage chart
       const ctx2 = document.getElementById('pctChart').getContext('2d');
       if (pctChart) pctChart.destroy();
+      const pctData = top.map(d => (metric === 'trips' ? d.pctTrips : d.pctDestinos).toFixed(1));
       pctChart = new Chart(ctx2, {
         type: 'bar',
         data: {
           labels: top.map(d => d.motorista),
           datasets: [{
             label: '% do total',
-            data: top.map(d => d.pct.toFixed(1)),
+            data: pctData,
             backgroundColor: '#22d3ee',
             borderRadius: 6
           }]
@@ -401,14 +447,15 @@
 
       // Table
       const tbody = document.querySelector('#table tbody');
-      tbody.innerHTML = stats.list.slice(0, topN).map((d, i) => `
+      tbody.innerHTML = top.map((d, i) => `
         <tr>
           <td class="rank">${i + 1}</td>
           <td>${d.motorista}</td>
           <td>${d.trips}</td>
+          <td>${d.destinos}</td>
           <td>${d.days}</td>
           <td>${d.multiDays}</td>
-          <td class="pct">${d.pct.toFixed(1)}%</td>
+          <td class="pct">${(metric === 'trips' ? d.pctTrips : d.pctDestinos).toFixed(1)}%</td>
         </tr>
       `).join('');
 
@@ -420,7 +467,8 @@
       try {
         if (rawData.length === 0) await loadData();
         const period = document.getElementById('period').value;
-        const filtered = filterData(period);
+        const op = document.getElementById('opFilter').value;
+        const filtered = filterData(period, op);
         render(filtered);
       } catch (e) {
         document.getElementById('loading').innerHTML = 'Erro ao carregar dados. Verifique a conexão ou o link da planilha.';
@@ -431,6 +479,7 @@
     document.getElementById('period').addEventListener('change', update);
     document.getElementById('topN').addEventListener('change', update);
     document.getElementById('metric').addEventListener('change', update);
+    document.getElementById('opFilter').addEventListener('change', update);
     document.getElementById('refresh').addEventListener('click', async () => {
       rawData = [];
       await update();
