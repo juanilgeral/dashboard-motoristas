@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Motoristas - Controle de Veículos (Modo Justo)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --accent: #38bdf8;
+      --accent2: #22d3ee;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 1.2rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    header p { font-size: 0.85rem; opacity: 0.8; }
+    .badge {
+      background: #065f46;
+      color: #6ee7b7;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .controls {
+      background: var(--card);
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    label { font-size: 0.85rem; opacity: 0.9; }
+    select, input {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .container {
+      padding: 1.5rem;
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr 1fr;
+      }
+      .full { grid-column: 1 / -1; }
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+    }
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--accent2);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .stat {
+      background: #0f172a;
+      padding: 0.8rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat .label { font-size: 0.75rem; opacity: 0.7; }
+    .chart-container {
+      position: relative;
+      height: 420px;
+      width: 100%;
+    }
+    @media (max-width: 768px) {
+      .chart-container { height: 500px; }
+      header h1 { font-size: 1.2rem; }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 0.6rem 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--accent2); font-weight: 600; }
+    tr:hover { background: rgba(56, 189, 248, 0.05); }
+    .rank { font-weight: 700; color: var(--warning); width: 40px; }
+    .pct { color: var(--success); font-weight: 600; }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      font-size: 1.1rem;
+    }
+    .source {
+      font-size: 0.75rem;
+      opacity: 0.6;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      opacity: 0.6;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dashboard de Motoristas</h1>
+      <p>Controle de Veículos • Ranking e Aproveitamento</p>
+    </div>
+    <div class="badge">Fonte: Planilha Oficial • Modo Justo</div>
+  </header>
+
+  <div class="controls">
+    <div>
+      <label>Período: </label>
+      <select id="period">
+        <option value="all">Todo o período</option>
+        <option value="current" selected>Mês Atual</option>
+        <option value="2026-01">Janeiro 2026</option>
+        <option value="2026-02">Fevereiro 2026</option>
+        <option value="2026-03">Março 2026</option>
+        <option value="2026-04">Abril 2026</option>
+        <option value="2026-05">Maio 2026</option>
+        <option value="2026-06">Junho 2026</option>
+        <option value="2026-07">Julho 2026</option>
+        <option value="2026-08">Agosto 2026</option>
+        <option value="2026-09">Setembro 2026</option>
+        <option value="2026-10">Outubro 2026</option>
+      </select>
+    </div>
+    <div>
+      <label>Top: </label>
+      <select id="topN">
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+      </select>
+    </div>
+    <div>
+      <label>Operação: </label>
+      <select id="opFilter">
+        <option value="">Todas</option>
+        <option value="HT">HT (Hortifrúti)</option>
+        <option value="CV">CV</option>
+        <option value="TL">TL</option>
+        <option value="LS">LS</option>
+        <option value="GR">GR</option>
+      </select>
+    </div>
+    <div>
+      <label>Critério: </label>
+      <select id="metric">
+        <option value="combinado" selected>Combinado (Justo)</option>
+        <option value="destinos">Total de Destinos</option>
+        <option value="trips">Total de Viagens</option>
+        <option value="multiDays">Dias com +1 viagem</option>
+      </select>
+    </div>
+    <div>
+      <label>Modo Justo: </label>
+      <select id="fairMode">
+        <option value="on" selected>Ativado (peso 0.3 em reposição)</option>
+        <option value="off">Desativado (peso igual)</option>
+      </select>
+    </div>
+    <button id="refresh" style="background:#38bdf8;color:#0f172a;border:none;padding:0.5rem 1rem;border-radius:6px;font-weight:600;cursor:pointer;">Atualizar</button>
+  </div>
+
+  <div id="loading" class="loading">Carregando dados da planilha...</div>
+
+  <div id="app" class="container" style="display:none;">
+    <div class="card full">
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="card full">
+      <h2>Ranking de Motoristas</h2>
+      <div class="chart-container">
+        <canvas id="rankChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Percentual de Aproveitamento</h2>
+      <div class="chart-container">
+        <canvas id="pctChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tabela Detalhada</h2>
+      <div style="overflow-x:auto;">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Motorista</th>
+              <th>Viagens</th>
+              <th>Ponderado</th>
+              <th>Destinos</th>
+              <th>Reservas</th>
+              <th>Dias ativos</th>
+              <th>Dias +1</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="source">
+    Dados carregados diretamente da planilha publicada. Nenhuma manipulação local. Atualizado a cada carregamento.<br>
+    <strong>Modo Justo ativado:</strong> viagens de reposição (Garagem ↔ CD / Telerio / LASA / C&V / Manutenção) recebem peso 0.3 para equilibrar com quem enfrenta lojas e trânsito.
+  </div>
+  <footer>
+    Dashboard de Premiação • Modo Justo ativo • Baseado no Controle de Veículos
+  </footer>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTd77MkT5hd6gzTkMfzX2BVWY5Hqqfo3NluQY58mnOklN8--hPVIoe2CfzkbttnucJKbnJFiaPEWSmR/pub?gid=1559964021&single=true&output=csv';
+
+    let rawData = [];
+    let rankChart = null;
+    let pctChart = null;
+    let isFirstLoad = true;
+
+    async function loadData(silent = false) {
+      if (!silent) {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('app').style.display = 'none';
+      }
+
+      return new Promise((resolve, reject) => {
+        Papa.parse(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now(), {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            rawData = results.data
+              .filter(r => r.MOTORISTA && r.MOTORISTA.trim())
+              .map(r => {
+                const destStr = (r.DESTINO || '').toString();
+                const destCount = Math.max(1, destStr.split(/\s*\/\s*/).filter(p => p.trim()).length);
+                const destUpper = destStr.toUpperCase();
+                const isRepos = /GARAGEM|TELERIO|TELE\s*RIO|LASA|C&V|MANUTEN|TESTE DE DIREÇÃO|CD QUEIMADOS|COBRANÇA DEVIDA/.test(destUpper);
+                const weight = isRepos ? 0.3 : 1.0;
+                return {
+                  data: r.DATA,
+                  motorista: r.MOTORISTA.trim().toUpperCase(),
+                  veiculo: r.VEICULO || '',
+                  destino: destStr,
+                  destinos: destCount,
+                  op: (r.OP || '').toString().toUpperCase(),
+                  isReserva: destStr.trim().toUpperCase() === 'RESERVA',
+                  isRepos,
+                  weight
+                };
+              });
+            resolve();
+          },
+          error: reject
+        });
+      });
+    }
+
+    function parseDate(str) {
+      if (!str) return null;
+      const parts = str.split('/');
+      if (parts.length !== 3) return null;
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10) - 1;
+      let year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
+      return new Date(year, month, day);
+    }
+
+    function filterData(period, op) {
+      let filtered = rawData;
+      let targetPeriod = period;
+      if (period === 'current') {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        targetPeriod = `${y}-${m}`;
+      }
+      if (targetPeriod !== 'all') {
+        const [y, m] = targetPeriod.split('-').map(Number);
+        filtered = filtered.filter(r => {
+          const d = parseDate(r.data);
+          return d && d.getFullYear() === y && (d.getMonth() + 1) === m;
+        });
+      }
+      if (op) {
+        filtered = filtered.filter(r => r.op === op);
+      }
+      return filtered;
+    }
+
+    function computeStats(data) {
+      const fair = document.getElementById('fairMode').value === 'on';
+      const byDriver = {};
+      const daysByDriver = {};
+      const destByDriver = {};
+      const reservaByDriver = {};
+      const weightedTrips = {};
+      const weightedDest = {};
+
+      data.forEach(r => {
+        if (!byDriver[r.motorista]) {
+          byDriver[r.motorista] = 0;
+          daysByDriver[r.motorista] = new Set();
+          destByDriver[r.motorista] = 0;
+          reservaByDriver[r.motorista] = 0;
+          weightedTrips[r.motorista] = 0;
+          weightedDest[r.motorista] = 0;
+        }
+        byDriver[r.motorista]++;
+        destByDriver[r.motorista] += r.destinos || 1;
+        if (r.isReserva) reservaByDriver[r.motorista]++;
+        if (r.data) daysByDriver[r.motorista].add(r.data);
+
+        const w = fair ? (r.weight || 1) : 1;
+        weightedTrips[r.motorista] += w;
+        weightedDest[r.motorista] += (r.destinos || 1) * w;
+      });
+
+      const multiDays = {};
+      const dayTrips = {};
+      data.forEach(r => {
+        const key = r.motorista + '|' + r.data;
+        dayTrips[key] = (dayTrips[key] || 0) + 1;
+      });
+      Object.keys(dayTrips).forEach(key => {
+        const [mot, day] = key.split('|');
+        if (dayTrips[key] > 1) {
+          multiDays[mot] = (multiDays[mot] || 0) + 1;
+        }
+      });
+
+      const totalTrips = data.length;
+      const totalDestinos = data.reduce((s, r) => s + (r.destinos || 1), 0);
+      const totalWeightedTrips = Object.values(weightedTrips).reduce((a, b) => a + b, 0);
+      const totalWeightedDest = Object.values(weightedDest).reduce((a, b) => a + b, 0);
+
+      const maxTrips = Math.max(...Object.values(fair ? weightedTrips : byDriver), 1);
+      const maxDestinos = Math.max(...Object.values(fair ? weightedDest : destByDriver), 1);
+      const maxMulti = Math.max(...Object.values(multiDays), 1);
+
+      const list = Object.keys(byDriver).map(mot => {
+        const trips = byDriver[mot];
+        const destinos = destByDriver[mot];
+        const multi = multiDays[mot] || 0;
+        const wTrips = weightedTrips[mot] || 0;
+        const wDest = weightedDest[mot] || 0;
+
+        const scoreTrips = (wTrips / maxTrips) * 100;
+        const scoreDest = (wDest / maxDestinos) * 100;
+        const scoreMulti = (multi / maxMulti) * 100;
+        const combinado = (scoreTrips + scoreDest + scoreMulti) / 3;
+
+        return {
+          motorista: mot,
+          trips,
+          destinos,
+          reservas: reservaByDriver[mot] || 0,
+          days: daysByDriver[mot].size,
+          multiDays: multi,
+          weightedTrips: wTrips,
+          weightedDest: wDest,
+          pctTrips: totalTrips ? ((trips / totalTrips) * 100) : 0,
+          pctDestinos: totalDestinos ? ((destinos / totalDestinos) * 100) : 0,
+          pctWeightedTrips: totalWeightedTrips ? ((wTrips / totalWeightedTrips) * 100) : 0,
+          combinado
+        };
+      }).sort((a, b) => b.combinado - a.combinado);
+
+      return { list, totalTrips, totalDestinos, totalDrivers: list.length, fair };
+    }
+
+    function render(data) {
+      const topN = parseInt(document.getElementById('topN').value, 10);
+      const metric = document.getElementById('metric').value;
+      const stats = computeStats(data);
+      const fair = stats.fair;
+
+      // Sort according to selected metric
+      let sorted = [...stats.list];
+      if (metric === 'trips') sorted.sort((a, b) => (fair ? b.weightedTrips : b.trips) - (fair ? a.weightedTrips : a.trips));
+      else if (metric === 'multiDays') sorted.sort((a, b) => b.multiDays - a.multiDays);
+      else if (metric === 'destinos') sorted.sort((a, b) => (fair ? b.weightedDest : b.destinos) - (fair ? a.weightedDest : a.destinos));
+      else sorted.sort((a, b) => b.combinado - a.combinado); // combinado
+
+      // Stats cards
+      const statsEl = document.getElementById('stats');
+      const leader = sorted[0];
+      let leaderValue = 0;
+      if (leader) {
+        if (metric === 'trips') leaderValue = fair ? leader.weightedTrips.toFixed(1) : leader.trips;
+        else if (metric === 'multiDays') leaderValue = leader.multiDays;
+        else if (metric === 'destinos') leaderValue = fair ? leader.weightedDest.toFixed(1) : leader.destinos;
+        else leaderValue = leader.combinado.toFixed(1);
+      }
+      statsEl.innerHTML = `
+        <div class="stat"><div class="value">${stats.totalTrips}</div><div class="label">Total de Viagens</div></div>
+        <div class="stat"><div class="value">${stats.totalDestinos}</div><div class="label">Total de Destinos</div></div>
+        <div class="stat"><div class="value">${stats.totalDrivers}</div><div class="label">Motoristas</div></div>
+        <div class="stat"><div class="value">${leaderValue}</div><div class="label">Líder ${fair ? '(ponderado)' : ''}</div></div>
+        <div class="stat"><div class="value">${leader ? leader.motorista : '-'}</div><div class="label">Motorista Destaque</div></div>
+      `;
+
+      const top = sorted.slice(0, topN);
+
+      // Ranking chart
+      const ctx1 = document.getElementById('rankChart').getContext('2d');
+      if (rankChart) rankChart.destroy();
+      const rankData = top.map(d => {
+        if (metric === 'trips') return fair ? d.weightedTrips : d.trips;
+        if (metric === 'multiDays') return d.multiDays;
+        if (metric === 'destinos') return fair ? d.weightedDest : d.destinos;
+        return d.combinado;
+      });
+      const rankLabel = metric === 'trips' ? (fair ? 'Viagens ponderadas' : 'Viagens') :
+                        metric === 'multiDays' ? 'Dias +1 viagem' :
+                        metric === 'destinos' ? (fair ? 'Destinos ponderados' : 'Destinos') :
+                        'Score Combinado';
+      rankChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: top.map(d => d.motorista),
+          datasets: [{
+            label: rankLabel,
+            data: rankData,
+            backgroundColor: fair ? '#22d3ee' : '#38bdf8',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            title: { display: false }
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+
+      // Percentage chart
+      const ctx2 = document.getElementById('pctChart').getContext('2d');
+      if (pctChart) pctChart.destroy();
+      const pctData = top.map(d => {
+        if (metric === 'trips') return (fair ? d.pctWeightedTrips : d.pctTrips).toFixed(1);
+        if (metric === 'combinado') return d.combinado.toFixed(1);
+        return d.pctDestinos.toFixed(1);
+      });
+      pctChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: top.map(d => d.motorista),
+          datasets: [{
+            label: fair && metric === 'trips' ? '% ponderado' : '% do total',
+            data: pctData,
+            backgroundColor: '#22d3ee',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#94a3b8', callback: v => v + '%' }, grid: { color: '#334155' } },
+            x: { ticks: { color: '#e2e8f0', maxRotation: 45, minRotation: 45, font: { size: 10 } }, grid: { display: false } }
+          }
+        }
+      });
+
+      // Table
+      const tbody = document.querySelector('#table tbody');
+      tbody.innerHTML = top.map((d, i) => `
+        <tr>
+          <td class="rank">${i + 1}</td>
+          <td>${d.motorista}</td>
+          <td>${d.trips}</td>
+          <td class="pct">${d.weightedTrips.toFixed(1)}</td>
+          <td>${d.destinos}</td>
+          <td>${d.reservas}</td>
+          <td>${d.days}</td>
+          <td>${d.multiDays}</td>
+          <td class="pct">${
+            metric === 'trips' ? (fair ? d.pctWeightedTrips : d.pctTrips).toFixed(1) :
+            metric === 'combinado' ? d.combinado.toFixed(1) :
+            d.pctDestinos.toFixed(1)
+          }%</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('app').style.display = 'grid';
+    }
+
+    async function update(silent = false) {
+      try {
+        if (rawData.length === 0 || !silent) {
+          await loadData(silent && !isFirstLoad);
+        } else if (silent) {
+          await loadData(true);
+        }
+        const period = document.getElementById('period').value;
+        const op = document.getElementById('opFilter').value;
+        const filtered = filterData(period, op);
+        render(filtered);
+        isFirstLoad = false;
+      } catch (e) {
+        if (!silent) {
+          document.getElementById('loading').innerHTML = 'Erro ao carregar dados. Verifique a conexão ou o link da planilha.';
+        }
+        console.error(e);
+      }
+    }
+
+    document.getElementById('period').addEventListener('change', () => update(false));
+    document.getElementById('topN').addEventListener('change', () => update(false));
+    document.getElementById('metric').addEventListener('change', () => update(false));
+    document.getElementById('opFilter').addEventListener('change', () => update(false));
+    document.getElementById('fairMode').addEventListener('change', () => update(false));
+    document.getElementById('refresh').addEventListener('click', async () => {
+      rawData = [];
+      await update(false);
+    });
+
+    // Atualização automática silenciosa a cada 30 segundos
+    setInterval(() => {
+      if (!isFirstLoad) update(true);
+    }, 30000);
+
+    update(false);
+  </script>
+</body>
+</html>
