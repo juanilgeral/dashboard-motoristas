@@ -126,11 +126,27 @@
       padding: 3rem;
       font-size: 1.1rem;
     }
-    .source {
+    .pesos-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      margin: 0.8rem 1.5rem 0;
+      font-size: 0.8rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+      align-items: center;
+    }
+    .pesos-box strong { color: var(--accent2); }
+    .peso-item { display: flex; align-items: center; gap: 0.4rem; }
+    .peso-tag {
+      background: #065f46;
+      color: #6ee7b7;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 600;
       font-size: 0.75rem;
-      opacity: 0.6;
-      margin: 1.5rem;
-      text-align: center;
     }
   </style>
 </head>
@@ -182,6 +198,16 @@
       </select>
     </div>
     <button id="refresh">Atualizar</button>
+  </div>
+
+  <div class="pesos-box">
+    <strong>Pesos ativos:</strong>
+    <div class="peso-item"><span class="peso-tag">Reposição</span> 0.1</div>
+    <div class="peso-item"><span class="peso-tag">Truck</span> 1.3</div>
+    <div class="peso-item"><span class="peso-tag">Toco</span> 1.1</div>
+    <div class="peso-item"><span class="peso-tag">3/4</span> 1.0</div>
+    <div class="peso-item"><span class="peso-tag">KM</span> incluído no score</div>
+    <div class="peso-item"><span class="peso-tag">Dias +1</span> só conta com viagem real</div>
   </div>
 
   <div id="loading" class="loading">Carregando ranking...</div>
