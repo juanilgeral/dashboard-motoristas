@@ -22,90 +22,183 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.4;
-      height: 100vh;
-      overflow: hidden;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 1.2rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    header p { font-size: 0.85rem; opacity: 0.8; }
+    .badge {
+      background: #065f46;
+      color: #6ee7b7;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .controls {
+      background: var(--card);
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    label { font-size: 0.85rem; opacity: 0.9; }
+    select, button {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    button {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
     }
     .container {
-      height: 100vh;
+      padding: 1.5rem;
       display: grid;
-      grid-template-columns: 1fr 1.1fr;
-      gap: 1rem;
-      padding: 1rem;
+      gap: 1.5rem;
+    }
+    @media (min-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr 1fr;
+      }
     }
     .card {
       background: var(--card);
       border-radius: 12px;
-      padding: 1rem;
+      padding: 1.25rem;
       border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
     }
     .card h2 {
-      font-size: 1.35rem;
-      margin-bottom: 0.5rem;
+      font-size: 1.2rem;
+      margin-bottom: 0.8rem;
       color: var(--accent2);
       text-align: center;
-      font-weight: 700;
     }
     .mes-badge {
       text-align: center;
       font-size: 0.9rem;
       color: #94a3b8;
       margin-bottom: 0.6rem;
-      letter-spacing: 0.04em;
     }
     .chart-container {
-      flex: 1;
       position: relative;
-      min-height: 0;
+      height: 420px;
+      width: 100%;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
     }
     th, td {
-      padding: 0.45rem 0.4rem;
+      padding: 0.55rem 0.4rem;
       text-align: left;
       border-bottom: 1px solid var(--border);
     }
-    th { color: var(--accent2); font-weight: 600; font-size: 0.85rem; }
+    th { color: var(--accent2); font-weight: 600; }
     tr:hover { background: rgba(56, 189, 248, 0.05); }
     .rank { font-weight: 700; color: var(--warning); width: 36px; }
     .pct { color: var(--success); font-weight: 600; }
     .loading {
       text-align: center;
       padding: 3rem;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
     }
     .source {
-      position: absolute;
-      bottom: 0.4rem;
-      left: 0;
-      right: 0;
-      text-align: center;
       font-size: 0.75rem;
-      opacity: 0.65;
-      color: #94a3b8;
+      opacity: 0.6;
+      margin: 1.5rem;
+      text-align: center;
     }
   </style>
 </head>
 <body>
+  <header>
+    <div>
+      <h1>Dashboard de Motoristas</h1>
+      <p>Controle de Veículos • Ranking e Aproveitamento</p>
+    </div>
+    <div class="badge">Fonte: Planilha Oficial • Critério Justo</div>
+  </header>
+
+  <div class="controls">
+    <div>
+      <label>Período: </label>
+      <select id="period">
+        <option value="current" selected>Mês Atual</option>
+        <option value="all">Todo o período</option>
+        <option value="2026-01">Janeiro 2026</option>
+        <option value="2026-02">Fevereiro 2026</option>
+        <option value="2026-03">Março 2026</option>
+        <option value="2026-04">Abril 2026</option>
+        <option value="2026-05">Maio 2026</option>
+        <option value="2026-06">Junho 2026</option>
+        <option value="2026-07">Julho 2026</option>
+        <option value="2026-08">Agosto 2026</option>
+        <option value="2026-09">Setembro 2026</option>
+        <option value="2026-10">Outubro 2026</option>
+      </select>
+    </div>
+    <div>
+      <label>Top: </label>
+      <select id="topN">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="15">15</option>
+        <option value="20">20</option>
+      </select>
+    </div>
+    <div>
+      <label>Operação: </label>
+      <select id="opFilter">
+        <option value="">Todas</option>
+        <option value="HT">HT</option>
+        <option value="CV">CV</option>
+        <option value="TL">TL</option>
+        <option value="LS">LS</option>
+        <option value="GR">GR</option>
+      </select>
+    </div>
+    <button id="refresh">Atualizar</button>
+  </div>
+
   <div id="loading" class="loading">Carregando ranking...</div>
 
   <div id="app" class="container" style="display:none;">
     <div class="card">
       <h2>Percentual de Aproveitamento</h2>
+      <div class="mes-badge" id="mes-badge">Mês atual</div>
       <div class="chart-container">
         <canvas id="pctChart"></canvas>
       </div>
     </div>
 
     <div class="card">
-      <h2>Top 10 — Tabela Detalhada</h2>
-      <div style="overflow:auto; flex:1;">
+      <h2 id="table-title">Top 10 — Tabela Detalhada</h2>
+      <div class="mes-badge" id="mes-badge-2">Mês atual</div>
+      <div style="overflow:auto;">
         <table id="table">
           <thead>
             <tr>
@@ -127,7 +220,7 @@
   </div>
 
   <div class="source">
-    Informações baseadas em dados coletados da planilha de Controle de Saída, entregas, reservas e demais registros oficiais — sempre referentes ao mês atual. Score considera viagens, destinos, KM rodado e dias com +1 viagem (com pesos de reposição e tipo de veículo).
+    Informações baseadas em dados coletados da planilha de Controle de Saída, entregas, reservas e demais registros oficiais. Score considera viagens, destinos, KM rodado e dias com +1 viagem (com pesos de reposição e tipo de veículo).
   </div>
 
   <script>
@@ -347,18 +440,27 @@
     function render(data) {
       const stats = computeStats(data);
       let sorted = [...stats.list].sort((a, b) => b.combinado - a.combinado);
-      const top = sorted.slice(0, 10);
+      const topN = parseInt(document.getElementById('topN').value, 10) || 10;
+      const top = sorted.slice(0, topN);
 
-      // Mês atual
-      const now = new Date();
-      const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-      const mesTexto = `${meses[now.getMonth()]} ${now.getFullYear()}`;
-      const badge = document.getElementById('mes-badge');
-      const badge2 = document.getElementById('mes-badge-2');
-      if (badge) badge.textContent = `Base: ${mesTexto}`;
-      if (badge2) badge2.textContent = `Base: ${mesTexto}`;
+      // Mês / período
+      const period = document.getElementById('period').value;
+      let mesTexto = 'Mês atual';
+      if (period === 'all') mesTexto = 'Todo o período';
+      else if (period !== 'current') {
+        const [y, m] = period.split('-');
+        const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        mesTexto = `${meses[parseInt(m)]} ${y}`;
+      } else {
+        const now = new Date();
+        const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        mesTexto = `${meses[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      document.getElementById('mes-badge').textContent = `Base: ${mesTexto}`;
+      document.getElementById('mes-badge-2').textContent = `Base: ${mesTexto}`;
+      document.getElementById('table-title').textContent = `Top ${topN} — Tabela Detalhada`;
 
-      // Percentage chart only
+      // Percentage chart
       const ctx2 = document.getElementById('pctChart').getContext('2d');
       if (pctChart) pctChart.destroy();
       const pctData = top.map(d => d.combinado.toFixed(1));
@@ -414,8 +516,9 @@
         } else if (silent) {
           await loadData(true);
         }
-        // Sempre mês atual e todas as operações na versão TV
-        const filtered = filterData('current', '');
+        const period = document.getElementById('period').value;
+        const op = document.getElementById('opFilter').value;
+        const filtered = filterData(period, op);
         render(filtered);
         isFirstLoad = false;
       } catch (e) {
@@ -425,6 +528,14 @@
         console.error(e);
       }
     }
+
+    document.getElementById('period').addEventListener('change', () => update(false));
+    document.getElementById('topN').addEventListener('change', () => update(false));
+    document.getElementById('opFilter').addEventListener('change', () => update(false));
+    document.getElementById('refresh').addEventListener('click', async () => {
+      rawData = [];
+      await update(false);
+    });
 
     // Atualização automática silenciosa a cada 30 segundos
     setInterval(() => {
